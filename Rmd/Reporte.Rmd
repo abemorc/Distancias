@@ -1,0 +1,242 @@
+
+---
+title: "Distancia recorrida Incilius spiculatus"
+date: "`r Sys.Date()`"
+author: "abe"
+output:
+  rmdformats::robobook
+
+    
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(knitr)
+library(rmdformats)
+library(DT)
+library(kableExtra)
+library(sjPlot)
+
+#library(dplyr)
+
+## Global options
+knitr::opts_chunk$set(
+	message = FALSE,
+	warning = FALSE,
+	prompt = TRUE
+)
+
+```
+
+
+
+```{r include=FALSE}
+#funcion para cambiar colores
+colorize <- function(x, color) {
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{%s}{%s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color,
+      x)
+  } else x
+}
+
+```
+
+```{r include=FALSE}
+texto <- "Preparar los datos"
+```
+# `r colorize(texto, "darkseagreen")`
+
+> 
+
+##  Importar dataframe
+Importaremos los datos del archivo excel que nos envio el **midgardo** asegurandonos de que ya estamos en el directorio de trabajo adecuado
+```{r}
+#importar datos
+df1 <- readxl::read_excel("spicu2.xlsx", sheet = "in")
+```
+
+Veamos como estan los datos para poder organizarlos
+```{r}
+df1
+```
+
+Con la funcion `str()` podemos ver la estructura de un dataframe y la informacion relevante de este
+```{r}
+str(df1)
+```
+
+Veamos la base de datos completa  
+```{r echo=FALSE}
+datatable(df1)
+```
+
+
+Con esto ya sabemos de que forma organizarnos, asi que para un facil acceso a los
+nombres de las variables reemplazaremos los espacios por giones, asi evitamos que
+salgan comillas al seleccionarlas mediante $
+
+```{r}
+vremove <- c(" ")
+vreplace <- c("_")
+
+names(df1) <- gsub(vremove, vreplace, names(df1))
+names(df1)
+```
+
+## Seleccion variables
+
+Ya con los nombres "corregidos" vamos a seleccionar las variables que nos interesan,
+en este caso las que nos indicaron 
+```{r}
+#seleccionar variables que interesan al tronco 
+dfdatos <- df1 %>% 
+  select(Sitio, Sexo, Distancia24hrs, Distancia_total_reccorida, Temporada,
+         NDVI_SMO:Altura_de_arbol)
+
+str(dfdatos)
+```
+
+Al importar archivos es comun que no tengan el tipo de dato correcto para poder realizar
+operaciones sobre ellos, por lo que es necesario asegurarse de que cada variable tenga el tipo correcto
+
+Tambien crearemos variables dummy para las variables categricas
+
+```{r include=FALSE}
+dfdatosori <- dfdatos
+```
+
+## Construir variables dummy
+```{r}
+dfdatos <- dfdatos %>% 
+  mutate(Distancia24hrs = as.numeric(Distancia24hrs),
+         Sitio_cons = ifelse(Sitio == "Conservado", 1, 0),
+         Sexo_macho = ifelse(Sexo == "Macho", 1, 0),
+         Sex_hembra = ifelse(Sexo == "Hembra", 1, 0),
+         Temporada_seca = ifelse(Temporada == "Secas", 1, 0)) %>% 
+  select(Distancia24hrs, Distancia_total_reccorida, NDVI_SMO:Altura_de_arbol,
+         Sitio_cons:Temporada_seca)
+
+#verificar que todo este correcto
+str(dfdatos)
+```
+
+Veamos como quedaron nuestro datos ya preparados para los analisis, para este caso son pocas obsevaciones y pocas 
+variables, pero suponiendo que fuesen mas añadiremos unos filtros para poder facilmente
+realizar una exploracion de los datos mediante la tabla.
+```{r echo=FALSE}
+datatable(dfdatos, filter = "bottom")
+```
+
+>Se realizara el analisis para la distancia por dia `$Distancia24hrs` y para la distancia
+total recorrida `Distancia_total_recorrida`
+
+<!-- aqui empieza lo chido -->
+
+
+```{r include=FALSE}
+texto <- "Analisis distancia por día recorrida"
+```
+# `r colorize(texto, "darkseagreen")`
+
+Construiremos el dataframe que utilizaremos para este analisis de distancia por dia
+```{r}
+dfdatos1 <- dfdatos[,c(1, 3:10, 12, 13)]
+```
+
+```{r echo=FALSE}
+datatable(dfdatos1, style = "bootstrap4")
+```
+
+Veamos una primera impresion de la distribucion de los datos
+```{r}
+hist(x = dfdatos1$Distancia24hrs, breaks = 7, xlab = "Distancia recorrida", main = "Distribucion datos 24hrs")
+```
+
+## Estandarización
+
+Para el analisis de correlacion no es necesario estandarizar las variables, sin embargo es comun
+hacerlo pues se puede comparar mas facilmente las variables al estar poder medirlas en terminos de 
+desviaciones estandar
+
+Crearemos una funcion que a cada valor reste la media de su conjunto y el resultado
+lo divida entre la desviacion estandar del mismo
+
+```{r}
+Estandarizar <- function(x){
+  (x-mean(x, na.rm = T))/sd(x, na.rm = T)
+}
+```
+
+Y aplicaremos dicha funcion a todas las variables numericas guardandolo en otro datframe,
+porque los datos originales los utilizaremos al final
+```{r}
+dfdatos1Est <- dfdatos1
+dfdatos1Est[c(2:8)] <- apply(X = dfdatos1Est[c(2:8)], MARGIN = 2, FUN = Estandarizar)
+dfdatos1Est
+```
+
+Comprobaremos que su media es igual a cero y su desviación estandar a uno
+
+```{r}
+apply(X = dfdatos1Est[c(2:8)], MARGIN = 2, FUN = mean)
+apply(X = dfdatos1Est[c(2:8)], MARGIN = 2, FUN = sd)
+```
+
+> Con los datos ya estandarizados y las variables dummy creadas podemos porceder a realizar 
+los analisis de correlacion
+
+## Correlacion
+
+Nos interesa saber que variables afectan mas a la distancia recorrida asi que podriamos 
+realizar un test de correlacion de cada variable en nuestro conjunto de datos respecto a la distancia.
+Algo asi:
+```{r}
+cor(dfdatos1Est$Distancia24hrs, dfdatos1Est$EVI_SMO, use ="complete.obs", method = "spearman")
+```
+
+Pero seria mas tardado, asi que haremos una matriz de correlaciones para obtener todas de una vez 
+ademas de identificar si algunas de las variables estan relacionadas entre si  
+
+Usaremos el coeficiente de correlacion de spearman ya que nos permite evaluar una
+relacion monotona entre dos variables continuas, es decir cuando las variables cambian 
+al mismo tiempo pero no necesariamentea un ritmo constante a diferencia del coeficiente de pearson que solo evalua 
+una relacion lineal entre las variables.
+
+```{r}
+correlaciones <- cor(dfdatos1Est[c(1:8)], use ="complete.obs", method = "spearman")
+correlaciones
+
+```
+
+Pongamos bonitos los resultados
+
+```{r}
+tab_corr(correlaciones)
+tab_corr(dfdatos1Est[c(1:8)])
+tab_df(dfdatos1Est)
+```
+
+
+## Regresion lineal simple
+
+aqui va tu chimuelo
+## Regresion lineal generalizada (GLM)
+
+
+
+```{r include=FALSE}
+texto <- "Analisis distancia total"
+```
+# `r colorize(texto, "darkseagreen")`
+
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
