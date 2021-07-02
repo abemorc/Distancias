@@ -4,9 +4,10 @@ title: "Distancia recorrida Incilius spiculatus"
 date: "`r Sys.Date()`"
 author: "abe"
 output:
-  rmdformats::robobook
+  rmdformats::robobook:
+    highlight: kate
+    toc_depth: 2
 
-    
 ---
 
 ```{r setup, include=FALSE}
@@ -16,6 +17,7 @@ library(rmdformats)
 library(DT)
 library(kableExtra)
 library(sjPlot)
+library(here)
 
 #library(dplyr)
 
@@ -27,7 +29,6 @@ knitr::opts_chunk$set(
 )
 
 ```
-
 
 
 ```{r include=FALSE}
@@ -43,6 +44,7 @@ colorize <- function(x, color) {
 
 ```
 
+
 ```{r include=FALSE}
 texto <- "Preparar los datos"
 ```
@@ -54,7 +56,7 @@ texto <- "Preparar los datos"
 Importaremos los datos del archivo excel que nos envio el **midgardo** asegurandonos de que ya estamos en el directorio de trabajo adecuado
 ```{r}
 #importar datos
-df1 <- readxl::read_excel("spicu2.xlsx", sheet = "in")
+df1 <- readxl::read_excel(here("Data", "spicu2.xlsx"), sheet = "in")
 ```
 
 Veamos como estan los datos para poder organizarlos
@@ -189,6 +191,8 @@ los analisis de correlacion
 
 ## Correlacion
 
+### Cuantitativas
+
 Nos interesa saber que variables afectan mas a la distancia recorrida asi que podriamos 
 realizar un test de correlacion de cada variable en nuestro conjunto de datos respecto a la distancia.
 Algo asi:
@@ -210,18 +214,207 @@ correlaciones
 
 ```
 
-Pongamos bonitos los resultados
+Calcularemos la correlacion en los datos sin estandarizar, solo para comprobar
+que los resultados no se ven afectados
 
 ```{r}
-tab_corr(correlaciones)
-tab_corr(dfdatos1Est[c(1:8)])
-tab_df(dfdatos1Est)
+correlaciones1 <- cor(dfdatos1[c(1:8)], use ="complete.obs", method = "spearman")
+correlaciones1
 ```
+
+Y solo por curiosidad lo haremos mediante el metodo de pearson
+```{r}
+corrpearson <- cor(dfdatos1Est[c(1:8)], use ="complete.obs", method = "pearson")
+corrpearson
+```
+
+Con esto vemos que aunque los resultados no son iguales, si son muy similares en cuanto al gardo de correlacion
+
+>
+
+Pongamos bonitos los resultados (Spearman)
+
+```{r}
+tab_corr(dfdatos1Est[c(1:8)], corr.method = "spearman")
+
+tab_df(as.data.frame(correlaciones), title = "Correlaciones", 
+       footnote = "Calculadas por el metodo de Spearman", show.footnote = T, 
+       digits = 3, show.rownames = T)
+
+correlaciones %>%
+    kbl(caption = "CORRELACIONES", digits = 3, align = "c") %>%
+  kable_classic_2(full_width = F) %>% 
+  footnote(general = "Calculado por el método de Spearman")
+```
+En la tabla podemos observar lo siguiente:  
+**NDVI_SMO** y **NDWI_SMO** presentan una relacion inversa muy fuerte.  
+**NDVI_SMO** y **NDMI_SMO** presentan una relacion moderada.  
+**EVI_SMO** y **LST_SMO** presentan una relacion fuerte.  
+**NDWI_SMO** y **NDMI_SMO** presentan una relacion inversa moderada.  
+
+En cuanto a la **Distancia24hrs** (la variable que nos es de interes), 
+vemos que **EVI_SMO** y **LST_SMO** serian las que presentan una 
+ligera relacion inversa
+
+Ordenemos los resultados de forma descendente en base a su valor absoluto
+tomando unicamente la distancia y pongamos los resultados con una bonita 
+presentacion
+```{r}
+relaciones <- as.data.frame(correlaciones)
+relaciones[order(relaciones$Distancia24hrs),]
+rel <- relaciones[order(abs(relaciones$Distancia24hrs), decreasing = T), 1, drop = F]
+rel
+```
+```{r echo=FALSE}
+rel %>%
+    kbl(caption = "ORDEN DE CORRELACION RESPECTO A LA DISTANCIA", digits = 3, align = "c") %>%
+  kable_classic_2(full_width = F) %>% 
+  footnote(general = "Calculado por el método de Spearman")
+```
+
+
+Para estar seguros de los resultados anteriores  calcularemos su grado de significancia
+
+```{r}
+probcor <- Hmisc::rcorr(as.matrix(dfdatos1Est[c(1:8)]), type = "spearman")
+probcor$P
+```
+
+Y tambien los ordenaremos respecto a la distancia
+```{r}
+probcor1 <- as.data.frame(probcor$P)
+probcor1[order(probcor1$Distancia24hrs), 1 , drop = F]
+probcor1 <- probcor1[order(probcor1$Distancia24hrs), 1 , drop = F]
+probcor1
+```
+
+Aquellas que tengan un p_value menor a 0.05 son aquellas que se puede afirmar que 
+presentan una relacion 
+
+Pongamos presentables los resultados
+```{r echo=FALSE}
+probcor$P %>%
+    kbl(caption = "SIGNIFICANCIA DE LAS CORRELACIONES", digits = 3, align = "c") %>%
+  kable_classic_2(full_width = F) %>% 
+  footnote(general = "Calculado por el método de Spearman")
+
+probcor1 %>%
+    kbl(caption = "ORDEN DE SIGNIFICANCIA RESPECTO A LA DISTANCIA", digits = 3, align = "c") %>%
+  kable_classic_2(full_width = F) %>% 
+  footnote(general = "Calculado por el método de Spearman")
+
+```
+Aquellas que tengan un p_value menor a 0.05 son aquellas que se puede afirmar que 
+presentan una relacion 
+
+Con la informacion de las tablas anterior podemos ver cuales son las variables que tienen mayor
+relacion con la distancia recorrida asi como entre ellas
+
+Grafiquemos los resultados obtenidos
+
+```{r}
+pairs(dfdatos1Est[c(1:8)])
+PerformanceAnalytics::chart.Correlation(dfdatos1Est[c(1:8)], histogram = T,
+                                        method = "spearman")
+```
+
+Pongamos todo en una sola grafica 
+```{r}
+psych::pairs.panels(dfdatos1Est[c(1:8)], method = "spearman", stars = TRUE,  
+             hist.col = 4, smooth = TRUE, scale = F, density = TRUE,
+             pch = 21, lm = F, jiggle = T, ci = TRUE)
+```
+
+> Con esto ya tenemos claro cuales variables cuantitativas influyen mas en la distancia
+
+### Categoricas
+
+Veamos visualmente como estan distribuidas las variables categoricas
+
+```{r}
+boxplot(formula = as.numeric(Distancia24hrs) ~ Sitio, data = na.omit(dfdatosori),
+        na.action=na.pass)
+boxplot(formula = as.numeric(Distancia24hrs) ~ Sexo, data = na.omit(dfdatosori),
+        na.action=na.pass)
+boxplot(formula = as.numeric(Distancia24hrs) ~ Temporada, data = na.omit(dfdatosori),
+        na.action=na.pass)
+```
+
+Podemos observar que el `Sitio perturbado`, `Sexo_hembra` y `Temporada_lluvias` presentan
+mayores distancias que su contraparte
+
+Sin embargo eso no nos dice cual de las tres influya mas en la distanca, para determinarlo
+usaremos un metodo llamado point biserial correlation, que nos permite calcular la correlacion
+entre una variable categorica y una cuantitativa.
+```{r}
+relacionSexo <- cor.test(dfdatos1Est$Sex_hembra, dfdatos1Est$Distancia24hrs) 
+relacionSitio <- cor.test(dfdatos1Est$Sitio_cons, dfdatos1Est$Distancia24hrs)
+relacionTemporada <- cor.test(dfdatos1Est$Temporada_seca, dfdatos1Est$Distancia24hrs)
+
+print(relacionSexo)
+print(relacionSitio)
+print(relacionTemporada)
+```
+
+Con esto comprobamos lo que observamos en los boxplot:  
+**Sexo_hembra** tiene relacion positiva fuerte  
+**Sitio_cons** tiene relacion inversa debil  
+**Temporada_seca** tiene relacion inversa moderada  
+
+Las ordenaremos de acuerdo a su grado de significancia
+```{r}
+v <- c(relacionSexo$p.value, relacionSitio$p.value, relacionTemporada$p.value)
+names(v) <- c("Sexo", "Sitio", "Temporada")
+v <- as.data.frame(v[order(v)])
+names(v) <- "p_value"
+v
+```
+```{r echo=FALSE}
+v %>%
+    kbl(caption = "ORDEN DE SIGNIFICANCIA"
+        , digits = 3, align = "c") %>%
+    kable_classic_2(full_width = F) %>% 
+    footnote(general = "Point biserial correlation")
+
+```
+
+Graficando los resultados
+```{r}
+dfdatos1Est1 <- na.omit(dfdatos1Est)
+dfdatos1Est1
+cor(dfdatos1Est1[9:11])
+corrplot::corrplot(cor(dfdatos1Est1[c(1, 9:11)]))
+
+```
+
+Basandonos en el *p_value* haremos una lista con el orden de importancia de
+nuestro dataset para la variable `Distancia24hrs` con su respectiva tabla
+```{r}
+names(v) <- names(probcor1)
+str(rbind(v,probcor1))
+importancia_variables <- rbind(probcor1, v)
+importancia_variables <-  importancia_variables[order(importancia_variables), ,
+                                                drop = F]
+
+importancia_variables
+
+```
+```{r echo=FALSE}
+a <- length(importancia_variables$Distancia24hrs)
+importancia_variables[-a, ,drop = F] %>%
+    kbl(caption = "ORDEN DE SIGNIFICANCIA RESPECTO A LA DISTANCIA POR DIA"
+        , digits = 3, align = "c") %>%
+    kable_classic_2(full_width = F) %>% 
+    footnote(general = "Valores redondeados")
+
+```
+> 
 
 
 ## Regresion lineal simple
 
 aqui va tu chimuelo
+intentar ajustar un modelo lineal 
 ## Regresion lineal generalizada (GLM)
 
 

@@ -8,7 +8,7 @@ library(ggplot2)
 library(visreg)
 
 #importar datos
-df1 <- readxl::read_excel("spicu2.xlsx", sheet = "in")
+df1 <- readxl::read_excel(here("Data", "spicu2.xlsx"), sheet = "in")
 View(df1)
 
 #corregir los nombres que pusiste feos
@@ -92,7 +92,7 @@ correlaciones1
 
 
 #usando pearson
-corrpearson <- cor(dfdatos1[c(1:8)], use ="complete.obs", method = "pearson")
+corrpearson <- cor(dfdatos1Est[c(1:8)], use ="complete.obs", method = "pearson")
 corrpearson
 
 
@@ -193,9 +193,12 @@ print(relacionTemporada)
 #ordenaremos las varibles respecto a sui orden de importancia
 v <- c(relacionSexo$p.value, relacionSitio$p.value, relacionTemporada$p.value)
 names(v) <- c("Sexo", "Sitio", "Temporada")
-v <- v[order(v)]  #y listo aqui tenemos el orden de importancia de las variables en relacion
+v <- as.data.frame(v[order(v)])  #y listo aqui tenemos el orden de importancia de las variables en relacion
 #a la distancia por dia
+names(v) <- "p_value"
 v
+
+
 
 #graficaremos tambien la correacion de las variables categoricas respecto a la distancia
 #quitando los NA
@@ -211,7 +214,6 @@ corrplot::corrplot(cor(dfdatos1Est1[c(1, 9:11)]))
 #calcular el p_value, pero de todas formas es una buena guia para identificar las 
 #variables mas importantes
 probcor1
-v <- as.data.frame(v)
 names(v) <- names(probcor1)
 str(rbind(v,probcor1))
 importancia_variables <- rbind(probcor1, v)
@@ -219,9 +221,16 @@ importancia_variables <-  importancia_variables[order(importancia_variables), ,
                                                 drop = F]
 
 importancia_variables
+str(importancia_variables)
+importancia_variables[-11, ,drop = F]
 ########################
+
 #con esto tenemos ya identificadas las principales variables que afectan al modelo
 #########3
+
+
+
+
 
 #############################################################################################
 #empezaremos a intentar ajustar los datos a un modelo, iniciaremos con uno 
@@ -430,6 +439,31 @@ predicciones
 
 #vemos que produce un vector con las predicciones y son valores bastante cercanos a los datos
 #lo cual ya se ha probado mediante los analisis anteriores.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #guardar los datos en csv
 i <- 0
