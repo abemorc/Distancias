@@ -6,6 +6,8 @@ library(leaps)
 library(bestglm)
 library(ggplot2)
 library(visreg)
+library(broom)
+library(here)
 
 #importar datos
 df1 <- readxl::read_excel(here("Data", "spicu2.xlsx"), sheet = "in")
@@ -269,6 +271,7 @@ shapiro.test(m2res)
 #vemos que no mejora, incluso empeora, seleccionaremos las variables en el orden  que previamente 
 #identificamos con mayor correlacion a la distancia
 
+importancia_variables
 m3 <- lm(formula = Distancia24hrs ~ EVI_SMO + LST_SMO + NDWI_SMO + Sex_hembra +
            Temporada_seca, data = dfdatos1Est1)
 summary(m3)
@@ -329,6 +332,7 @@ plot(density(gm1res))
 
 #pruebas mas formales
 AIC(gm1)
+BIC(gm1)
 1-gm1$deviance/gm1$null.deviance   #este es el pseudo r2
 
 
@@ -408,8 +412,13 @@ AIC(gm3)
 #plot(gm3)
 plot_model(gm3, type="pred")
 
+visreg(gm3, 
+       gg = TRUE, 
+       scale="response")
 
 
+#####################################################
+dfdatos1
 df1 <- na.omit(dfdatos1)
 df1
 gm9 <- glm(formula = Distancia24hrs ~ NDVI_SMO + NDWI_SMO + LST_SMO + Sex_hembra +
@@ -423,11 +432,11 @@ plot_model(gm9, type="pred")
 
 
 
-visreg(gm3, 
-       gg = TRUE, 
-       scale="response")
+visreg(gm9, "LST_SMO", main = "DFSDF")
 
-visreg(gm9, "LST_SMO", )
+visreg(gm9,
+       gg = T, scale = "response")
+######################################################
 
 #con esto tenemos un modelo que se ajusta bastante bien a los datos y en el cual podemos hacer predicciones 
 #usaremos los mismos datos de entrada originales (a falta de nuevos datos) para
@@ -436,6 +445,20 @@ dfdatos1Est
 
 predicciones <- exp(predict(object = gm3, newdata = dfdatos1Est1))
 predicciones
+
+
+
+dfdatos1Est$Predicciones <- predicciones
+largo <- length(dfdatos1Est)
+mostrar <- c(largo, 1:(largo-1))
+mostrar
+
+dfdatos1Est[mostrar]
+
+
+1:length(dfdatos1Est)-1
+
+
 
 #vemos que produce un vector con las predicciones y son valores bastante cercanos a los datos
 #lo cual ya se ha probado mediante los analisis anteriores.

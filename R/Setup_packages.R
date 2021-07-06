@@ -5,7 +5,7 @@ oldw <- getOption("warn")
 options(warn = -1)
 
 packages <- c("ggplot2", "readxl", "dplyr", "knitr", "corrplot", "psych",
-              "here", "bestglm", "visreg", "Hmisc", "sjPlot")
+              "here", "bestglm", "visreg", "Hmisc", "sjPlot", "broom")
 
 installed_packages <- packages %in% rownames(installed.packages())
 if (any(installed_packages == FALSE)) {
@@ -17,3 +17,5 @@ library(here)
 #invisible(lapply(packages, library, character.only = TRUE))
 
 options(warn = oldw)
+
+load(here(".RData"))

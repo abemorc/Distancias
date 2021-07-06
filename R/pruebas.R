@@ -17,3 +17,11 @@ correlaciones %>%
   kbl(caption = "CORRELACIONES", digits = 3, align = "c") %>%
   kable_classic_2(full_width = F) %>% 
   footnote(general = "Calculado por el método de Spearman")
+
+
+library(devtools)
+install_github("holtzy/epuRate")
+library(epuRate)
+
+
+detach("package:vegan", unload=TRUE)

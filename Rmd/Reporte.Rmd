@@ -2,12 +2,12 @@
 ---
 title: "Distancia recorrida Incilius spiculatus"
 date: "`r Sys.Date()`"
-author: "abe"
+author: "Midgardo"
 output:
   rmdformats::robobook:
     highlight: kate
     toc_depth: 2
-
+    
 ---
 
 ```{r setup, include=FALSE}
@@ -18,6 +18,9 @@ library(DT)
 library(kableExtra)
 library(sjPlot)
 library(here)
+library(broom)
+library(bestglm)
+library(visreg)
 
 #library(dplyr)
 
@@ -28,7 +31,24 @@ knitr::opts_chunk$set(
 	prompt = TRUE
 )
 
+htmltools::tagList(rmarkdown::html_dependency_font_awesome())
+
 ```
+
+<style>
+.fa {
+  padding: 20px;
+  font-size: 30px;
+  width: 50px;
+  text-align: right;
+  text-decoration: none;
+  margin: 5px 2px;
+  float: right;
+}
+</style>
+<!-- Add font awesome icons -->
+<a href="https://www.youtube.com/channel/UCrZ-pih8cnC5TurbsfUtR1A" class="fa fa-youtube"></a>
+<a href="https://www.instagram.com/herpetofauna_fotografia/?r=nametag" class="fa fa-instagram"></a>
 
 
 ```{r include=FALSE}
@@ -48,28 +68,32 @@ colorize <- function(x, color) {
 ```{r include=FALSE}
 texto <- "Preparar los datos"
 ```
+
+<!-- <br> -->
+***
+
 # `r colorize(texto, "darkseagreen")`
 
 > 
 
 ##  Importar dataframe
-Importaremos los datos del archivo excel que nos envio el **midgardo** asegurandonos de que ya estamos en el directorio de trabajo adecuado
+Importar datos del archivo excel
 ```{r}
 #importar datos
 df1 <- readxl::read_excel(here("Data", "spicu2.xlsx"), sheet = "in")
 ```
 
-Veamos como estan los datos para poder organizarlos
+observacion del *raw data* 
 ```{r}
 df1
 ```
 
-Con la funcion `str()` podemos ver la estructura de un dataframe y la informacion relevante de este
+Con la funcion `str()` se puede ver la estructura de un dataframe y la informacion relevante de este
 ```{r}
 str(df1)
 ```
 
-Veamos la base de datos completa  
+La base de datos completa  
 ```{r echo=FALSE}
 datatable(df1)
 ```
@@ -410,13 +434,379 @@ importancia_variables[-a, ,drop = F] %>%
 ```
 > 
 
-
 ## Regresion lineal simple
 
-aqui va tu chimuelo
-intentar ajustar un modelo lineal 
+Se intentara ajustar los datos a un modelo, se iniciara con uno lineal simple
+y con los reultados obtenidos determinaremos si es suficiente mente bueno o si es
+necesario buscar otro tipo de modelo
+
+Se usara el conjunto de datos con las variables estandarizadas para asi poder ver
+directamente en los coeficientes obtenidos su grado de importancia en el modelo
+ajustado
+
+En esta fase inicial se utilizara un enfoque de prueba y error para buscar el mejor
+modelo
+
+### Modelo 1
+
+El primer intento incluira todas las variables para tener un punto de partida al
+intentar mejorar el modelo
+```{r}
+m1 <- lm(formula = Distancia24hrs ~ ., data = dfdatos1Est1)
+summary(m1)
+```
+
+Graficar los residuales
+```{r}
+m1res <- resid(m1)
+plot(m1)
+qqnorm(m1res)
+hist(m1res)
+plot(density(m1res))
+```
+
+Comprobando mediante test de normalidad
+```{r}
+olsrr::ols_test_normality(m1)
+```
+
+Criterios de desempeño del modelo
+```{r}
+AIC(m1)
+BIC(m1)
+```
+
+> La inspeccion visual de los graficos indican que no se ajustan muy bien los datos a un modelo
+lineal  
+Los resultados de los test de normalidad indican que no se presenta una distribucion normal,
+por lo que talvez un modelo lineal no sea lo mas adecuado.  
+El modelo no parece ser el mas adecuado, se creara un nuevo modelo lineal con menos
+variables seleccionadas al azar para confirmar
+
+
+### Modelo 2
+
+Tomamos algunas variables seleccionadas al azar
+```{r}
+m2 <- lm(formula = Distancia24hrs ~ EVI_SMO + LST_SMO + NDWI_SMO, data = dfdatos1Est1)
+summary(m2)
+m2res <- resid(m2)
+plot(density(m2res))
+```
+
+Test de normalidad
+```{r}
+olsrr::ols_test_normality(m2)
+```
+
+Criterios de desempeño del modelo
+```{r}
+AIC(m2)
+BIC(m2)
+```
+
+> El desempeño empeora respecto al modelo 1
+
+### Modelo 3
+
+Basados en nuestro analisis previo de correlación, tomaremos las variables que
+identificamos con mayor relacion a la distancia para este modelo
+
+```{r}
+m3 <- lm(formula = Distancia24hrs ~ EVI_SMO + LST_SMO + NDWI_SMO + Sex_hembra +
+           Temporada_seca, data = dfdatos1Est1)
+summary(m3)
+m3res <- resid(m3)
+plot(m3)
+qqnorm(m3res)
+hist(m3res)
+plot(density(m3res))
+
+```
+
+Test de normalidad
+```{r}
+olsrr::ols_test_normality(m3)
+```
+
+Criterios de desempeño del modelo
+```{r}
+AIC(m3)
+BIC(m3)
+```
+
+> Hay una mejora significativa respecto a los otros dos modelos
+
+### Modelo 4
+
+Seleccionando unicamente las variables identifacdas en el analisis de correlacion
+con mayor relevancia
+
+```{r}
+m4 <- lm(formula = Distancia24hrs ~ EVI_SMO + LST_SMO + Sex_hembra +
+           Temporada_seca, data = dfdatos1Est1)
+summary(m4)
+m4res <- resid(m4)
+plot(m4)
+qqnorm(m4res)
+hist(m4res)
+plot(density(m4res))
+```
+
+-Test de normalidad
+```{r}
+olsrr::ols_test_normality(m4)
+```
+
+-Criterios de desempeño del modelo
+```{r}
+AIC(m4)
+BIC(m4)
+```
+
+### Conclusiónes
+
+> * Se logró mejorar el modelo inicial, sin embargo se confirma en todos los casos que un modelo lineal simple no es la mejor opción  
+* Se podria probar todas las combinaciones posibles para encontrar el modelo lineal mas optimo sin embargo no tiene caso ya que los test indican una no normalidad, por lo que es mejor buscar otras opciones.  
+* Despues de inspeccionar los graficos se observa que una distribucion gamma podria ser la mas adecuada para ajustar a estos datos.  
+* Se probara mediante un modelo lineal generalizado con una ditribucion gamma y su variante.
+
+
 ## Regresion lineal generalizada (GLM)
 
+Se utilizara un modelo lineal generalizado para una distribucion de probabilidad
+de la familia gamma con una funcion de enlace recíproca y la variante logaritmica.
+
+### GLM 1
+
+Se probara primero con todas las variables del dataset 
+```{r}
+gm1 <- glm(formula = Distancia24hrs ~., family = Gamma, data = dfdatos1Est1)
+```
+
+Resumen del glm 1
+```{r}
+summary(gm1)
+gm1res <- resid(gm1)
+qqnorm(gm1res)
+hist(gm1res)
+plot(density(gm1res))
+```
+
+Criterios de desempeño
+```{r}
+AIC(gm1)
+BIC(gm1)
+#pseudo r2
+r2g1 <-  1-gm1$deviance/gm1$null.deviance   
+```
+
+Ordenando los resultados
+```{r echo=FALSE}
+t1 <- tidy(gm1)
+tg1 <- glance(gm1)
+tg1$pseudoR2 <- r2g1
+
+t1 %>%
+    kbl(caption = "GLM GAMMA CON TODAS LAS VARIABLES",
+        digits = 3, align = "c", label = "Tabla 1") %>%
+    kable_classic_2(full_width = F) %>% 
+    footnote(general = "Los resultados han sido redondeados a tres cifras")
+
+tg1 %>%
+    kbl(caption = "Criterios de desempeño GLM 1",
+        digits = 3, align = "c", label = "Tabla 1") %>%
+    kable_classic_2(full_width = F) %>% 
+    footnote(general = "Los resultados han sido redondeados a tres cifras")
+
+```
+
+> No es exactamente el mejor modelo, es necesario modificarlo para obtener mayor 
+significancia en los predictores
+
+### GLM´s multiples
+
+El paso siguiente es determinar que variables son las que nos permiten predecir mejor
+los resultados, se puede tener el mismo enfoque que se hizo previamente en los modelos
+simples pero se ira un paso mas lejos y probaremos con todas las posibles combinaciones
+de las variables predictoras para encontrar el mejor modelo posible.
+
+El "mejor" modelo sera determinado usando el criterio de akaike  
+```{r}
+dfmatrix <- dfdatos1Est1[,c(2:length(dfdatos1Est1),1)]
+names(dfmatrix)[11] <- "y"
+dfmatrix
+dfmatrix <- as.data.frame(dfmatrix)
+
+modelos1 <- bestglm(Xy = dfmatrix, 
+                   family = Gamma(link = "inverse"), 
+                   IC = "AIC",
+                   method = "exhaustive")
+
+```
+
+Los 5 mejores modelos generalizados de una distribucion de probabilidades gamma 
+con funcion de enlace reciproca son los siguientes:
+```{r}
+modelos1$BestModels
+```
+
+```{r echo=FALSE}
+t1 <- modelos1$BestModels
+t1$Modelo <- 1:5
+
+
+t1[c(12, 1:11)] %>%
+    kbl(caption = "Best GLM gamma inverse",
+        digits = 3, align = "c", label = "Tabla 1") %>%
+    kable_classic_2(full_width = F) %>% 
+    footnote(number = c("Determinados por el criterio de akaike 'AIC()'",
+                        "Cada fila representa un modelo",
+                        "Mediante TRUE o FALSE se indica si esa variable es incluida o no en ese modelo"))
+```
+
+Cambiando la funcion de enlace recíproca por una logaritmica y probando todas las 
+combinaciones posibles
+```{r}
+modelos2 <- bestglm(Xy = dfmatrix, 
+                    family = Gamma(link = "log"), 
+                    IC = "AIC",
+                    method = "exhaustive")
+```
+
+Los 5 mejores modelos generalizados de una distribucion de probabilidades gamma 
+con funcion de enlace logaritmica son los siguientes:
+```{r}
+modelos2$BestModels
+```
+
+```{r echo=FALSE}
+t2 <- modelos2$BestModels
+t2$Modelo <- 1:5
+
+
+t2[c(12, 1:10)] %>%
+    kbl(caption = "Best GLM gamma log",
+        digits = 3, align = "c", label = "Tabla 2") %>%
+    kable_classic_2(full_width = F) %>% 
+    footnote(number = c("Determinados por el criterio de akaike 'AIC()'",
+                        "Cada fila representa un modelo",
+                        "Mediante TRUE o FALSE se indica si esa variable es incluida o no en ese modelo"))
+```
+
+> Se observa que el mejor modelo posible pertenece a la familialogaritmica, el cual incluye las variables:  
+**NDVI_SMO**  
+**NDWI_SMO**  
+**LST_SMO**  
+**Sex_hembra**  
+**Temporada_seca**  
+Es de resaltar que precisamente estas variables son las que resultaron en el 
+analisis de correlación.
+
+## Modelo final
+
+Se hara el modelo obtenido en los resultados anteriores
+```{r}
+
+gm3 <- glm(formula = Distancia24hrs ~ NDVI_SMO + NDWI_SMO + LST_SMO + Sex_hembra +
+             Temporada_seca, family = Gamma(link = "log"), data = dfdatos1Est1)
+summary(gm3)
+```
+
+Criterios de desempeño
+```{r}
+AIC(gm3)
+BIC(gm3)
+#pseudo r2
+r2g3 <-  1-gm3$deviance/gm3$null.deviance   
+```
+
+Presentacion de los resultados
+```{r echo=FALSE}
+t3 <- tidy(gm3)
+tg3 <- glance(gm3)
+tg3$pseudoR2 <- r2g3
+
+t3 %>%
+    kbl(caption = "GLM optimo",
+        digits = 3, align = "c", label = "Tabla 2") %>%
+    kable_classic_2(full_width = F) %>% 
+    footnote(general = "Los resultados han sido redondeados a tres cifras")
+
+tg3 %>%
+    kbl(caption = "Criterios de desempeño GLM optimo",
+        digits = 3, align = "c", label = "Tabla 3") %>%
+    kable_classic_2(full_width = F) %>% 
+    footnote(general = "Los resultados han sido redondeados a tres cifras")
+```
+
+Graficas del  modelo
+```{r echo=FALSE}
+#visreg(gm3, "NDVI_SMO"
+#       gg = TRUE, 
+#       scale="response")
+
+```
+
+```{r echo=FALSE}
+df1 <- na.omit(dfdatos1)
+gm9 <- glm(formula = Distancia24hrs ~ NDVI_SMO + NDWI_SMO + LST_SMO + Sex_hembra +
+             Temporada_seca, family = Gamma(link = "log"), data = df1)
+
+#plot_model(gm9, type="pred")
+#visreg(gm9, "LST_SMO" )
+
+visreg(gm9, 
+       gg = T, scale = "response")
+```
+
+### Conclusiones
+
+Como se estandarizaron las variables, es posible ver en los coeficientes a cuales
+variables nuestro modelo les da mayor importancia
+
+Tomando su valor absoluto el resultado sería el siguiente
+```{r echo=FALSE}
+tt <- order(abs(t3$estimate), decreasing = T)
+tt1 <- t3[tt[2:length(tt)],c(1,2)]
+tt1 %>%
+    kbl(caption = "Ranking variables del modelo",
+        digits = 3, align = "c", label = "Tabla 3") %>%
+    kable_classic_2(full_width = F) %>% 
+    footnote(general = "Basado en el valor absoluto del coeficiente")
+```
+
+Es posible realizar predicciones con el modelo creado  
+Para este ejemplo utilizaremos los datos originales, es decir los que estan en el
+archivo excel
+
+```{r}
+predicciones <- exp(predict(object = gm3, newdata = dfdatos1Est))
+
+```
+
+Como en el conjunto original son 30 observaciones, se obtienen 30 predicciones
+```{r}
+predicciones
+```
+
+Es decir podemos usar nuestro propio modelo para predecir los 3 valores faltantes
+de nuestro conjunto de datos original, ya que las demas variables si las teniamos
+disponibles 
+```{r}
+dfdatos1Est$Predicciones <- predicciones
+largo <- length(dfdatos1Est)
+mostrar <- c(largo, 1:(largo-1))
+
+dfdatos1Est[mostrar]
+```
+ 
+```{r echo=FALSE}
+dfdatos1Est[mostrar] %>%
+    kbl(caption = "Conjunto de datos con predicciones",
+        digits = 3, align = "c", label = "Tabla 3") %>%
+    kable_classic_2(full_width = F)
+```
 
 
 ```{r include=FALSE}
@@ -425,11 +815,4 @@ texto <- "Analisis distancia total"
 # `r colorize(texto, "darkseagreen")`
 
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
 
