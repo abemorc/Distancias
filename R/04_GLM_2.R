@@ -14,7 +14,7 @@ df2 <- read_csv(file = here("Data/Processed_Data/Distancias_sapos.csv"))
 #seleccion variables que necesitamos
 df2 <- df2[c(2:10)]
 
-
+df2
 
 
 
@@ -24,6 +24,14 @@ df2 <- df2[c(2:10)]
 
 cor2 <- cor(df2[c(1:8)], use ="complete.obs", method = "spearman")
 cor2
+
+findex <- function(x, valor) {
+  ifelse(abs(x) > valor, x, NA)
+}
+
+apply(cor2, MARGIN = 2, FUN = findex, valor = 0.8)
+cor2
+
 #cor(df2, use ="complete.obs", method = "spearman")
 
 pcor2 <-  Hmisc::rcorr(as.matrix(df2[c(1:8)]), type = "spearman")[[3]]
@@ -38,6 +46,7 @@ cor2
 pcor2 <- as.data.frame(pcor2)
 pcor2 <- pcor2[order(pcor2$Distancia_total_reccorida), 1 , drop = F]
 pcor2
+#esta seria la lista de las variables que mas influyen en la distancia total
 
 #graficas
 PerformanceAnalytics::chart.Correlation(df2[c(1:8)], histogram = T,
@@ -48,6 +57,7 @@ psych::pairs.panels(df2[c(1:8)], method = "spearman", stars = TRUE,
                     hist.col = 4, smooth = TRUE, scale = F, density = TRUE,
                     pch = 21, lm = F, jiggle = T, ci = TRUE)
 
+str(cor2)
 
 
 ### categoricas ###
@@ -79,7 +89,7 @@ cor.test(df2$Sitio_cons, df2$LST_SMO)
 cor.test(df2$Sitio_cons, df2$Altura_de_arbol)
 cor.test(df2$Sitio_cons, df2$Sitio_cons)
 ### De aqui podemos concluir que el estado del sitio esta muy fuertemente
-### relacionado con la variale CME_SMO
+### relacionado con la variale CME_SMO (altura del sitio)
 
 #grafica
 corrplot::corrplot(cor(df2[c(1, 9)]))
@@ -191,7 +201,10 @@ rgl <- glm(formula = Sitio_cons ~ Distancia_total_reccorida,
 
 #veamops como salio
 summary(rgl)
-#pseudo r2 McFadden         
+#pseudo r2 McFadden     
+# el pseudo r2 s un indice del 0 al 1 que nos indica que tan buen modelo es
+# valores cercanos a 0 indican nula relacion
+#es decir se busca que el pseudo r2 sea lo mayor posible
 1-rgl$deviance/rgl$null.deviance
 #otra medida de fit
 pscl::pR2(rgl)
@@ -235,7 +248,6 @@ predict(object = rgl0, newdata = df2)
 
 
 
-
 # Algoritmo de clasificacion ML -------------------------------------------
 
 
@@ -243,6 +255,7 @@ predict(object = rgl0, newdata = df2)
 #clasificador Bayesiano ingenuo
 #es un algoritmo de aprendizaje automático basado en el teorema de Bayes
 library(e1071)
+library(caret)
 fitNB <- naiveBayes(formula = Sitio_cons ~ Distancia_total_reccorida, data = df2)
 fitNB
 fitNB$apriori
@@ -267,7 +280,7 @@ table(predict(fitNB, df2))
 df2$Sitio_cons
 table(df2$Sitio_cons)
 #
-set.
+set
 indx <- sample(2, 30, replace = T, prob = c(0.7, 0.3))
 table(indx)
 
@@ -314,13 +327,14 @@ confusionMatrix(pnaive2, testData$Sitio_cons)
 
 #veamos entonces la varianza de la distancia total
 vdis <- var(df2$Distancia_total_reccorida)
+vdis
 
 vgroup <- df2 %>% 
   group_by(Sitio_cons) %>% 
   summarize(observaciones = n(),
             varianza = var(Distancia_total_reccorida),
             desviacion_dis = sd(Distancia_total_reccorida))
-
+vgroup
 ## Eureka :)
 #jajaja pues si logramos encontrar una relacion tambien por medio de la varianza
 #
@@ -335,19 +349,62 @@ dfvar
 
 
 
-
 # Replica de "Statical analisis" que esta en el pdf que me mandaste -------
 # ahi usan un conjunto de modelos glm para determinar que variables afectan mas
 # al movimiento, despues usan la suma de los pesos de akaike para cada variable 
 # para determinar una especie de ranking de las variables en base a en cauntos
 # modelos aparecia y su peso relativo en ellos
 
+str(df3)
+####
+####
+# modelos con todas las variables para una distribucion gamma para ambas
+# funciones de la funcion de enlace: logaritmica e inversa
 
+gma1 <- glm(formula = Distancia_total_reccorida ~., family = Gamma, data = df2)
+summary(gma1)
+1-gma1$deviance/gma1$null.deviance
 
+gma2 <- glm(formula = Distancia_total_reccorida ~., family = Gamma(link = "log"), data = df2)
+summary(gma2)
+1-gma2$deviance/gma2$null.deviance
+#### 
+####
 
+cor2
+gma3 <- glm(formula = Distancia_total_reccorida ~ EVI_SMO + NDVI_SMO + NDWI_SMO +
+              LST_SMO + Altura_de_arbol, family = Gamma, data = df3)
+summary(gma3)
+1-gma3$deviance/gma3$null.deviance
 
+####
+#construccion de todos las combinaciones posibles de variables
+backup_options <- options()
+options(na.action = "na.fail")
 
+#funcion de enlace inversa
+fullmodels1 <- dredge(gma1)
+View(fullmodels1)
+sw(fullmodels1)
 
+#funcion de enlace logaritmica
+fullmodels2 <- dredge(gma2)
+View(fullmodels2)
+sw(fullmodels2)
 
+####
+####
+# ahora incluyendo a fuerza la variable de Sitio_cons
+
+fullmodelsSitio1 <- dredge(gma1, fixed = "Sitio_cons")
+fullmodelsSitio2 <- dredge(gma2, fixed = "Sitio_cons")
+
+View(fullmodelsSitio1)
+View(fullmodelsSitio2)
+
+sw(fullmodelsSitio1)
+sw(fullmodelsSitio2)
+
+## 
 
 
