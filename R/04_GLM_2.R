@@ -11,14 +11,14 @@
 
 df2 <- read_csv(file = here("Data/Processed_Data/Distancias_sapos.csv"))
 
-#seleccion variables que necesitamos
+#selección variables que necesitamos
 df2 <- df2[c(2:10)]
 
 df2
 
 
 
-# correlacion (practicamente igual que el primero) ------------------------
+# correlacion (prácticamente igual que el primero) ------------------------
 
 ### Variables cuantitativas ###
 
@@ -58,6 +58,7 @@ psych::pairs.panels(df2[c(1:8)], method = "spearman", stars = TRUE,
                     pch = 21, lm = F, jiggle = T, ci = TRUE)
 
 str(cor2)
+      
 
 
 ### categoricas ###
@@ -90,6 +91,8 @@ cor.test(df2$Sitio_cons, df2$Altura_de_arbol)
 cor.test(df2$Sitio_cons, df2$Sitio_cons)
 ### De aqui podemos concluir que el estado del sitio esta muy fuertemente
 ### relacionado con la variale CME_SMO (altura del sitio)
+
+
 
 #grafica
 corrplot::corrplot(cor(df2[c(1, 9)]))
