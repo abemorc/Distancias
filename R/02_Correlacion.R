@@ -6,8 +6,10 @@
 #importar datos
 dfdatos1 <- read_csv(file = here("Data/Processed_Data/Distancias_sapos.csv"))
 
+
+
 #creamos el dataframe con las variables que nos interesan
-dfdatos1 <- dfdatos[,c(1, 3:10, 12, 13)]
+dfdatos1 <- dfdatos1[,c(1, 3:10, 12, 13)]
 
 #observar que todo este correcto
 str(dfdatos1)
@@ -183,6 +185,132 @@ importancia_variables[-11, ,drop = F]
 ########################
 
 #con esto tenemos ya identificadas las principales variables que afectan al modelo
-#########3
+##########
 
+
+# correlacion distancia total ---------------------------------------------
+
+
+## Haremos ahora lo mismo para la distancia total, ya que la distancia por dia
+# es un promedio de la distancia total, los resultados deberian ser muy 
+# similares
+
+# creamos el dataframe con las variables de interes es decir con distancia total
+# y las de indices asi como sexo, temporada sitio
+
+dfdatos2 <- dfdatos1[,c(2, 3:10, 12, 13)]
+
+#ver la distribucion de los datos 
+hist(x = dfdatos2$Distancia_total_reccorida  , breaks = 7,
+     xlab = "Distancia recorrida", main = "Distribucion datos distancia total")
+
+plot(density(na.omit(dfdatos2$Distancia_total_reccorida)))
+
+
+## matriz de correlaciones distancia total
+correlaciones2 <- cor(dfdatos2[c(1:8)], use ="complete.obs", method = "spearman")
+correlaciones2
+
+
+# matriz de significancia
+probcor2 <- Hmisc::rcorr(as.matrix(dfdatos2[c(1:8)]), type = "spearman")
+probcor2$P
+str(probcor2$P)
+class(probcor2$P)
+
+
+#ordenar de mayor a menor los resultados
+
+#obtener las variables que mas estan relacionadas con distancia por día
+relaciones2 <- as.data.frame(correlaciones2)
+relaciones2[order(relaciones2$Distancia_total_reccorida),]
+rel2 <- relaciones2[order(abs(relaciones2$Distancia_total_reccorida), decreasing = T), 1, drop = F]
+rel2
+
+
+
+#hacer lo mismo pero para la significancia
+probcor2 <- as.data.frame(probcor2$P)
+probcor2[order(probcor2$Distancia_total_reccorida), 1 , drop = F]
+probcor2 <- probcor2[order(probcor2$Distancia_total_reccorida), 1 , drop = F]
+probcor2
+str(probcor2)
+
+
+
+#########################
+#Con esto nos damos una idea de que varibles cuantitativas influyen mas en 
+#el desplazamiento total de los sapos
+
+#graficado para que sea facilmente observable
+PerformanceAnalytics::chart.Correlation(dfdatos2[c(1:8)], histogram = T,
+                                        method = "spearman")
+
+
+pairs(dfdatos2[c(1:8)])
+
+
+psych::pairs.panels(dfdatos2[c(1:8)], method = "spearman", stars = TRUE,  
+                    hist.col = 4, smooth = TRUE, scale = F, density = TRUE,
+                    pch = 21, lm = F, jiggle = T, ci = TRUE)
+
+
+#####################
+
+
+#relaciones entre las variables cualitativas
+
+#utilizare el metodo llamado point biserial correlation
+dfdatos2
+
+relacionSexo2 <- cor.test(dfdatos2$Sex_hembra, dfdatos2$Distancia_total_reccorida) 
+relacionSitio2 <- cor.test(dfdatos2$Sitio_cons, dfdatos2$Distancia_total_reccorida)
+relacionTemporada2 <- cor.test(dfdatos2$Temporada_seca,
+                               dfdatos2$Distancia_total_reccorida)
+
+print(relacionSexo2)
+print(relacionSitio2)
+print(relacionTemporada2)
+#con esto tenemos la correlacion entre las varibles respecto a la distancia total y 
+#su significancia
+
+#ordenaremos las varibles respecto a su orden de importancia
+v2 <- c(relacionSexo2$p.value, relacionSitio2$p.value, relacionTemporada2$p.value)
+names(v2) <- c("Sexo", "Sitio", "Temporada")
+v2 <- as.data.frame(v2[order(v2)])  #y listo aqui tenemos el orden de importancia
+#de las variables en relacion a la distancia total
+names(v2) <- "p_value"
+v2
+
+
+#graficaremos tambien la correacion de las variables categoricas respecto
+#a la distancia total
+dfdatos2 <- na.omit(dfdatos2)
+dfdatos2
+cor(dfdatos2[9:11])
+corrplot::corrplot(cor(dfdatos2[c(1, 9:11)]))
+
+
+
+############################
+#esto a continuacion no es estrictamente correcto ya que se utilizaron metodos diferentes para 
+#calcular el p_value, pero de todas formas es una buena guia para identificar las 
+#variables mas importantes
+probcor2
+names(v2) <- names(probcor2)
+str(rbind(v2, probcor2))
+importancia_variables2 <- rbind(probcor2, v2)
+importancia_variables2 <-  importancia_variables2[order(importancia_variables2), ,
+                                                drop = F]
+
+importancia_variables2
+str(importancia_variables2)
+importancia_variables2[-11, ,drop = F]
+########################
+#estas son las principales variables que afectan a la distancia total recorrida
+##########
+#entonces teneos aqui ya los resultados tanto por dia como toal
+
+importancia_variables
+importancia_variables2
 
